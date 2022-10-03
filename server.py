@@ -167,7 +167,7 @@ async def ramalan(request: Request):
   # cv2.imshow("palm",image) #to view the palm in python
   # cv2.waitKey(0)
   gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
-  edges = cv2.Canny(gray,30,80,apertureSize = 3)
+  edges = cv2.Canny(gray,25,45,apertureSize = 3)
   # cv2.imshow("edges in palm",edges)
   # cv2.waitKey(0)
   edges = cv2.bitwise_not(edges)
@@ -222,10 +222,10 @@ async def ramalan(request: Request):
       theindex= index
           
   hasil_ramalan = datas[theindex]['datanya']
-  # if os.path.exists("temp/"):
-  #     os.remove("temp/"+image_name+"lines.png") 
-  #     os.remove("temp/"+image_name+"cropped.png") 
-  #     os.remove("temp/"+body['image']) 
+  if os.path.exists("temp/"):
+      os.remove("temp/"+image_name+"lines.png") 
+      os.remove("temp/"+image_name+"cropped.png") 
+      os.remove("temp/"+body['image']) 
 
   return {"message": hasil_ramalan}
         
