@@ -216,6 +216,8 @@ async def ramalan(request: Request):
     if(ret < pilihan):
         pilihan =ret
         image_ramalan = file
+
+  print(image_ramalan)
   theindex = None
   for index,data in enumerate(datas):
     if(data["id"] == image_ramalan):
