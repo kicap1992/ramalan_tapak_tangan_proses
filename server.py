@@ -79,7 +79,119 @@ async def image(image: UploadFile = File(...)):
     # if os.path.exists("temp/"+image_name):
     #   os.remove("temp/"+image_name)
 
-    return {"message": "lakukan ramalan"}  
+    change_background_mp = mp.solutions.selfie_segmentation #untuk hapus background
+    change_bg_segment = change_background_mp.SelfieSegmentation() #untuk hapus background
+
+    sample_img1 = sample_img
+    sample_img = cv2.cvtColor(sample_img, cv2.COLOR_BGR2RGB)
+    sample_img = change_bg_segment.process(sample_img)
+    sample_img = sample_img.segmentation_mask > 0.9
+    sample_img = np.dstack((sample_img,sample_img,sample_img))
+    sample_img = np.where(sample_img, sample_img1, 255) 
+    sample_img = cv2.resize(sample_img, (350,450), interpolation = cv2.INTER_AREA)
+    shape = sample_img.shape    
+    results = hands.process(cv2.cvtColor(sample_img, cv2.COLOR_BGR2RGB))
+    image_height, image_width, _ = sample_img.shape
+
+
+    result=None
+    print(results.multi_hand_landmarks)
+    for hand_landmarks in results.multi_hand_landmarks:
+        annotated_image = sample_img.copy()
+        palm_center_y = (hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_CMC].y +
+        hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_MCP].y)/2.1
+        palm_center_x = (hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_CMC].x +
+        hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_MCP].x)/2.1
+        myradius = int(image_height/4.9) 
+        #annotated_image = makeCircle(annotated_image,palm_center_y,palm_center_x,myradius)
+        y = int(palm_center_y * image_height)
+        x = int(palm_center_x * image_width)
+        circle_coordinates = (x,y)
+        mask = np.zeros(sample_img.shape, dtype=np.uint8)
+        cv2.circle(mask, circle_coordinates, myradius, (255,255,255), -1)
+        ROI = cv2.bitwise_and(sample_img, mask)
+        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+        x,y,w,h = cv2.boundingRect(mask)
+        result = ROI[y:y+h,x:x+w]
+        mask = mask[y:y+h,x:x+w]
+        result[mask==0] = (255,255,255)
+
+    cv2.imwrite("temp/"+image_name+"cropped.png", result)
+    cv2.waitKey(0)
+
+    sample_img = cv2.imread("temp/"+image_name+"cropped.png")
+    width = 450
+    height = 450
+    dim = (width, height)
+    sample_img = cv2.resize(sample_img, dim, interpolation = cv2.INTER_AREA)
+    # cv2.imshow("palm",image) #to view the palm in python
+    # cv2.waitKey(0)
+    gray = cv2.cvtColor(sample_img,cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray,25,45,apertureSize = 3)
+    # cv2.imshow("edges in palm",edges)
+    # cv2.waitKey(0)
+    edges = cv2.bitwise_not(edges)
+    # cv2.imshow("edges in palm1",edges)
+    cv2.imwrite("temp/"+image_name+"lines.png", edges)
+    cv2.waitKey(0)
+
+    TARGET_FILE = "temp/"+image_name+"lines.png"
+    IMG_DIR = os.path.abspath(os.path.dirname(__file__)) + '/images/'
+    IMG_SIZE = (200, 200)
+    
+    target_img = cv2.imread(TARGET_FILE)
+    target_img = cv2.resize(target_img, IMG_SIZE)
+
+    print('TARGET_FILE: %s' % (TARGET_FILE))
+
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING)
+    detector = cv2.AKAZE_create()
+    (target_kp, target_des) = detector.detectAndCompute(target_img, None)
+
+    hasil_ramalan = None
+
+    datas = None
+
+    with open('dataset.json') as f:
+      datas = json.load(f)
+
+    pilihan = 2000
+    image_ramalan = None
+
+    files = os.listdir(IMG_DIR)
+    for file in files:
+
+      comparing_img_path = IMG_DIR + file
+      try:
+          comparing_img = cv2.imread(comparing_img_path, cv2.IMREAD_GRAYSCALE)
+          comparing_img = cv2.resize(comparing_img, IMG_SIZE)
+          (comparing_kp, comparing_des) = detector.detectAndCompute(comparing_img, None)
+          matches = bf.match(target_des, comparing_des)
+          dist = [m.distance for m in matches]
+          ret = sum(dist) / len(dist)
+      except cv2.error:
+          ret = 100000
+
+      print(file, ret)
+      if(ret < pilihan):
+          pilihan =ret
+          image_ramalan = file
+
+    print(image_ramalan)
+    theindex = None
+    for index,data in enumerate(datas):
+      if(data["id"] == image_ramalan):
+        theindex= index
+            
+    hasil_ramalan = datas[theindex]['datanya']
+    if os.path.exists("temp/"):
+        os.remove("temp/"+image_name+"lines.png") 
+        os.remove("temp/"+image_name+"cropped.png") 
+        os.remove("temp/"+image_name) 
+
+    return {"message": hasil_ramalan}
+
+    # return {"message": "hasil_ramalan"}
 
 
 # @app.post("/ramalan")
